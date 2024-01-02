@@ -1673,84 +1673,49 @@ else
 
         local index = 1;
         local frameNum = 1;
-        local filter = nil;
         local maxDebuffs = frame.maxDebuffs;
-        --Show both Boss buffs & debuffs in the debuff location
-        --First, we go through all the debuffs looking for any boss flagged ones.
-        while (frameNum <= maxDebuffs) do
-            local debuffName = UnitDebuff(frame.displayedUnit, index, filter);
-            if (debuffName) then
-                if (CompactUnitFrame_UtilIsBossAura(frame.displayedUnit, index, filter, false)) then
-                    local debuffFrame = frame.debuffFrames[frameNum];
-                    CompactUnitFrame_UtilSetDebuff(debuffFrame, frame.displayedUnit, index, filter, true, false);
-                    frameNum = frameNum + 1;
-                    --Boss debuffs are about twice as big as normal debuffs, so display one less.
-                    local bossDebuffScale = (debuffFrame.baseSize + BOSS_DEBUFF_SIZE_INCREASE) / debuffFrame.baseSize
-                    maxDebuffs = maxDebuffs - (bossDebuffScale - 1);
-                end
-            else
-                break;
-            end
-            index = index + 1;
-        end
-        --Then we go through all the buffs looking for any boss flagged ones.
-        index = 1;
-        while (frameNum <= maxDebuffs) do
-            local debuffName = UnitBuff(frame.displayedUnit, index, filter);
-            if (debuffName) then
-                if (CompactUnitFrame_UtilIsBossAura(frame.displayedUnit, index, filter, true)) then
-                    local debuffFrame = frame.debuffFrames[frameNum];
-                    CompactUnitFrame_UtilSetDebuff(debuffFrame, frame.displayedUnit, index, filter, true, true);
-                    frameNum = frameNum + 1;
-                    --Boss debuffs are about twice as big as normal debuffs, so display one less.
-                    local bossDebuffScale = (debuffFrame.baseSize + BOSS_DEBUFF_SIZE_INCREASE) / debuffFrame.baseSize
-                    maxDebuffs = maxDebuffs - (bossDebuffScale - 1);
-                end
-            else
-                break;
-            end
-            index = index + 1;
-        end
 
-        --Now we go through the debuffs with a priority (e.g. Weakened Soul and Forbearance)
-        index = 1;
-        while (frameNum <= maxDebuffs) do
-            local debuffName = UnitDebuff(frame.displayedUnit, index, filter);
-            if (debuffName) then
-                if (CompactUnitFrame_UtilIsPriorityDebuff(frame.displayedUnit, index, filter)) then
-                    local debuffFrame = frame.debuffFrames[frameNum];
-                    CompactUnitFrame_UtilSetDebuff(debuffFrame, frame.displayedUnit, index, filter, false, false);
-                    frameNum = frameNum + 1;
-                end
-            else
-                break;
-            end
-            index = index + 1;
-        end
-
+        local filter = nil
         if (frame.optionTable.displayOnlyDispellableDebuffs) then
             filter = "RAID";
         end
 
-        index = 1;
-        --Now, we display all normal debuffs.
-        if (frame.optionTable.displayNonBossDebuffs) then
-            while (frameNum <= maxDebuffs) do
-                local debuffName = UnitDebuff(frame.displayedUnit, index, filter);
-                if (debuffName) then
-                    if (
-                        CompactUnitFrame_UtilShouldDisplayDebuff(frame.displayedUnit, index, filter) and
-                            not CompactUnitFrame_UtilIsBossAura(frame.displayedUnit, index, filter, false) and
-                            not CompactUnitFrame_UtilIsPriorityDebuff(frame.displayedUnit, index, filter)) then
-                        local debuffFrame = frame.debuffFrames[frameNum];
-                        CompactUnitFrame_UtilSetDebuff(debuffFrame, frame.displayedUnit, index, filter, false, false);
-                        frameNum = frameNum + 1;
-                    end
-                else
-                    break;
-                end
-                index = index + 1;
-            end
+        -- TODO: May need to do some in-place sorting of these buffs as we iterate.
+        -- The original code looped through all auras 4 times so that it could capture all these categories in priority order - bossDebuff > bossBuff > prioDebuff > debuff
+        while (frameNum <= maxDebuffs) do 
+            local debuffName = UnitDebuff(frame.displayedUnit, index, nil);
+            if not (debuffName) then break end;
+                    
+            local debuffFrame = frame.debuffFrames[frameNum];
+            local bossDebuffScale = (debuffFrame.baseSize + BOSS_DEBUFF_SIZE_INCREASE) / debuffFrame.baseSize
+
+            --Show both Boss buffs & debuffs in the debuff location
+            -- Check boss debuffs
+            if (CompactUnitFrame_UtilIsBossAura(frame.displayedUnit, index, nil, false)) then
+                CompactUnitFrame_UtilSetDebuff(debuffFrame, frame.displayedUnit, index, nil, true, false);
+                frameNum = frameNum + 1;
+                --Boss debuffs are about twice as big as normal debuffs, so display one less.
+                maxDebuffs = maxDebuffs - (bossDebuffScale - 1);
+
+            -- Check boss buffs, displaying them just like debuffs
+            elseif (CompactUnitFrame_UtilIsBossAura(frame.displayedUnit, index, nil, true)) then
+                CompactUnitFrame_UtilSetDebuff(debuffFrame, frame.displayedUnit, index, nil, true, true);            
+                frameNum = frameNum + 1;
+                --Boss debuffs are about twice as big as normal debuffs, so display one less.
+                maxDebuffs = maxDebuffs - (bossDebuffScale - 1);        
+
+            --Now we go through the debuffs with a priority (e.g. Weakened Soul and Forbearance)
+            elseif (CompactUnitFrame_UtilIsPriorityDebuff(frame.displayedUnit, index, nil)) then
+                CompactUnitFrame_UtilSetDebuff(debuffFrame, frame.displayedUnit, index, nil, false, false);
+                frameNum = frameNum + 1;
+
+            -- then just normal debuffs
+            elseif (CompactUnitFrame_UtilShouldDisplayDebuff(frame.displayedUnit, index, filter)) then
+                CompactUnitFrame_UtilSetDebuff(debuffFrame, frame.displayedUnit, index, filter, false, false);
+                frameNum = frameNum + 1;
+            end 
+
+            index = index + 1;
         end
 
         for i = frameNum, frame.maxDebuffs do
