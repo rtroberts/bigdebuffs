@@ -2156,16 +2156,21 @@ function BigDebuffs:UNIT_AURA_NAMEPLATE(unit)
     local now = GetTime()
     local left, priority, duration, expires, icon, debuff, buff, interrupt = 0, 0
 
-    for i = 1, 40 do
-        -- Check debuffs
-        local _, n, _, _, d, e, caster, _, _, id = UnitDebuff(unit, i)
-        if id then
-            if self.Spells[id] and (not tContains(self.HiddenDebuffs, id)) then
-                if LibClassicDurations then
+    AuraUtil.ForEachAura(unit, nil, nil, function(...)
+        local _, icon, _, _, d, e, caster, _, _, id = ...;
+
+        if not id then return false end
+        if not self.Spells[id] then return false end
+        if tContains(self.HiddenDebuffs, id) then return false end
+
+        -- for now, return true/finish looping over nameplate auras as soon as a priority debuff is found.
+        -- on nameplates it seems wayy too expensive to iterate over all the things all the time
+        if LibClassicDurations then
                     local durationNew, expirationTimeNew = LibClassicDurations:GetAuraDurationByUnit(unit, id, caster)
                     if d == 0 and durationNew then
                         d = durationNew
                         e = expirationTimeNew
+                        return true
                     end
                 end
                 local reaction = caster and UnitReaction("player", caster) or 0
@@ -2179,41 +2184,11 @@ function BigDebuffs:UNIT_AURA_NAMEPLATE(unit)
                         priority = p
                         expires = e
                         icon = n
+                        return true
                     end
-                end
-            end
-        end
-
-        -- Check buffs
-        if LibClassicDurations then
-            _, n, _, _, d, e, caster, _, _, id = LibClassicDurations:UnitAura(unit, i, "HELPFUL")
-        else
-            _, n, _, _, d, e, caster, _, _, id = UnitBuff(unit, i)
-        end
-        if id then
-            if self.Spells[id] then
-                if LibClassicDurations then
-                    local durationNew, expirationTimeNew = LibClassicDurations:GetAuraDurationByUnit(unit, id, caster)
-                    if d == 0 and durationNew then
-                        d = durationNew
-                        e = expirationTimeNew
-                    end
-                end
-                local p = self:GetNameplatesPriority(id)
-                if p and p >= priority then
-                    if p > priority or self:IsPriorityBigDebuff(id) or e == 0 or e - now > left then
-                        left = e - now
-                        duration = d
-                        debuff = i
-                        priority = p
-                        expires = e
-                        icon = n
-                        buff = true
-                    end
-                end
-            end
-        end
-    end
+                end 
+    
+    )
 
     -- Check for interrupt
     local guid = UnitGUID(unit)
